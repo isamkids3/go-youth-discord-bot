@@ -55,7 +55,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), function 
           title: 'Submit your daily wins 🏆',
           components: [
             {
-              // Text inputs must be inside of an action component
+              // Text inputs must be inside of an action component y
               type: MessageComponentTypes.ACTION_ROW,
               components: [
                 {
