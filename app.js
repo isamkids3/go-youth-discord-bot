@@ -9,7 +9,14 @@ import {
 
 // Create and configure express app
 const app = express();
+const port = process.env.PORT || 3000; // Use environment variable or fallback to 3000
 
+app.use(express.json()); // To parse JSON requests
+
+// Health check endpoint for UptimeRobot
+app.get('/', (req, res) => res.send('Bot is running!'));
+
+//Initialise variable
 let totalPhysicalWins = 0;
 let totalMentalWins = 0;
 let totalSpiritualWins = 0;
