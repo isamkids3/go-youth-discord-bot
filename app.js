@@ -36,7 +36,10 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), function 
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: { 
           content:
-                 `Total daily wins submitted: **${totalWins}**`,
+                 `Total physical wins submitted: **${totalPhysicalWins}**\n` +
+                 `Total mental wins submitted: **${totalMentalWins}**\n` +
+                 `Total spiritual wins submitted: **${totalSpiritualWins}**\n`+
+                 `Total daily wins submitted: **${totalWins}**\n`,
         }
       })
     }
