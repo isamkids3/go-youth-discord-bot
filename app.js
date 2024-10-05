@@ -3,57 +3,161 @@ import express from 'express';
 import {
   InteractionType,
   InteractionResponseType,
+  MessageComponentTypes,
   verifyKeyMiddleware,
 } from 'discord-interactions';
-import { getRandomEmoji } from './utils.js';
 
-// Create an express app
+// Create and configure express app
 const app = express();
-// Get port, or default to 3000
-const PORT = process.env.PORT || 3000;
 
-/**
- * Interactions endpoint URL where Discord will send HTTP requests
- * Parse request body and verifies incoming requests using discord-interactions package
- */
-app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async function (req, res) {
+let totalPhysicalWins = 0;
+let totalMentalWins = 0;
+let totalSpiritualWins = 0;
+
+function formatCustomId(customId) {
+  return customId
+    .replace(/_/g, ' ')       // Replace underscores with spaces
+    .replace(/\b\w/g, (char) => char.toUpperCase()); // Capitalize the first letter of each word
+}
+
+app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), function (req, res) {
   // Interaction type and data
   const { type, data } = req.body;
-
-  /**
-   * Handle verification requests
-   */
-  if (type === InteractionType.PING) {
-    return res.send({ type: InteractionResponseType.PONG });
-  }
-
   /**
    * Handle slash command requests
-   * See https://discord.com/developers/docs/interactions/application-commands#slash-commands
    */
-  if (type === InteractionType.APPLICATION_COMMAND) {
-    const { name } = data;
 
-    // "test" command
-    if (name === 'test') {
-      // Send a message into the channel where command was triggered from
+  if (type === InteractionType.APPLICATION_COMMAND){
+    // Slash command with name of "totalcount"
+    if (data.name === 'totalcount'){
+      const totalWins = totalPhysicalWins + totalMentalWins + totalSpiritualWins;
+      //display total wins sent in the server
       return res.send({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: { 
+          content:
+                 `Total daily wins submitted: **${totalWins}**`,
+        }
+      })
+    }
+  }
+  if (type === InteractionType.APPLICATION_COMMAND) {
+    // Slash command with name of "dailywins"
+    if (data.name === 'dailywins') {
+      // Send a modal as response
+      return res.send({
+        type: InteractionResponseType.MODAL,
         data: {
-          // Fetches a random emoji to send from a helper function
-          content: `hello world ${getRandomEmoji()}`,
+          custom_id: 'my_modal',
+          title: 'Submit your daily wins 🏆',
+          components: [
+            {
+              // Text inputs must be inside of an action component
+              type: MessageComponentTypes.ACTION_ROW,
+              components: [
+                {
+                  // See https://discord.com/developers/docs/interactions/message-components#text-inputs-text-input-structure
+                  type: MessageComponentTypes.INPUT_TEXT,
+                  custom_id: 'physical_win',
+                  style: 2,
+                  required: false,
+                  label: 'Physical Win 👟 ',
+                },
+              ],
+            },
+            {
+              type: MessageComponentTypes.ACTION_ROW,
+              components: [
+                {
+                  type: MessageComponentTypes.INPUT_TEXT,
+                  custom_id: 'mental_win',
+                  // Bigger text box for input
+                  style: 2,
+                  required: false,
+                  label: 'Mental Win 🧠',
+                },
+              ],
+            },
+            {
+              type: MessageComponentTypes.ACTION_ROW,
+              components: [
+                {
+                  type: MessageComponentTypes.INPUT_TEXT,
+                  custom_id: 'spiritual_win',
+                  // Bigger text box for input
+                  style: 2,
+                  required: false,
+                  label: 'Spiritual Win 📖 ',
+                },
+              ],
+            },
+          ],
         },
       });
     }
-
-    console.error(`unknown command: ${name}`);
-    return res.status(400).json({ error: 'unknown command' });
   }
 
-  console.error('unknown interaction type', type);
-  return res.status(400).json({ error: 'unknown interaction type' });
+  /**
+   * Handle modal submissions
+   */
+  if (type === InteractionType.MODAL_SUBMIT) {
+    const modalId = data.custom_id;
+    const userId = req.body.member.user.id;
+
+    if (modalId === 'my_modal') {
+      let modalValues = '';
+
+      // Loop through components and format custom IDs
+      for (let action of data.components) {
+        for (let inputComponent of action.components) {
+          const formattedCustomId = formatCustomId(inputComponent.custom_id); // Format the custom_id
+          const inputValue = inputComponent.value.trim(); // Get the trimmed value
+
+          // assigns modal values to custom id
+          if (inputValue) {
+            modalValues += `**${formattedCustomId}**: ${inputValue}\n\n`;
+
+            // Count each submission based on input value
+            if (formattedCustomId.includes('Physical Win')) {
+              totalPhysicalWins++;
+            } else if (formattedCustomId.includes('Mental Win')) {
+              totalMentalWins++;
+            } else if (formattedCustomId.includes('Spiritual Win')) {
+              totalSpiritualWins++;
+            }
+          }
+        }
+      }
+
+    
+    
+      // fetch date
+      const date = new Date();
+      const formattedDate = `${date.getDate()} ${date.toLocaleString('en-US', { month: 'long' })} ${date.getFullYear()}`;
+
+      //Send daily win message
+
+      // if user does not input anything
+      if (modalValues == "")
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE,
+          data: {
+            content: `'<@${userId}> did not input any daily win.`
+          }
+      })
+
+      // User input
+      else  
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: `<@${userId}>'s daily win on **${formattedDate}**:\n\n${modalValues}`,
+        },
+      });
+    }
+  }
 });
 
-app.listen(PORT, () => {
-  console.log('Listening on port', PORT);
+app.listen(3000, () => {
+  console.log('Listening on port 3000');
 });

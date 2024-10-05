@@ -17,33 +17,26 @@ function createCommandChoices() {
   return commandChoices;
 }
 
-// Simple test command
-const TEST_COMMAND = {
-  name: 'test',
-  description: 'Basic command',
+// daily wins command
+const DAILYWINS_COMMAND = {
+  name: 'dailywins',
+  description: 'Submit your daily wins with this command!',
   type: 1,
   integration_types: [0, 1],
   contexts: [0, 1, 2],
 };
 
-// Command containing options
-const CHALLENGE_COMMAND = {
-  name: 'challenge',
-  description: 'Challenge to a match of rock paper scissors',
-  options: [
-    {
-      type: 3,
-      name: 'object',
-      description: 'Pick your object',
-      required: true,
-      choices: createCommandChoices(),
-    },
-  ],
+// stats daily wins command
+const TOTALCOUNT_COMMAND = {
+  name: "totalcount",
+  description: "Check the total daily wins sent in the GO Youth Discord server",
   type: 1,
   integration_types: [0, 1],
-  contexts: [0, 2],
-};
+  contexts: [0, 1, 2],
+}
 
-const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND];
+
+
+const ALL_COMMANDS = [DAILYWINS_COMMAND, TOTALCOUNT_COMMAND];
 
 InstallGlobalCommands(process.env.APP_ID, ALL_COMMANDS);
