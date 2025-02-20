@@ -2,7 +2,8 @@ import 'dotenv/config';
 import express from 'express';
 import mysql from 'mysql2/promise';
 import { 
-  Client, GatewayIntentBits, InteractionType, InteractionResponseType, MessageComponentTypes 
+  Client, GatewayIntentBits, InteractionType, InteractionResponseType, 
+  TextInputStyle, ModalBuilder, ActionRowBuilder, TextInputBuilder
 } from 'discord.js';
 
 // Setup MySQL connection
@@ -50,23 +51,41 @@ client.on('interactionCreate', async (interaction) => {
   const today = new Date().toISOString().split('T')[0];
 
   if (interaction.commandName === 'dailywins') {
-    await interaction.reply({
-      content: 'Submit your daily wins 🏆',
-      ephemeral: true,
-      components: [
-        {
-          type: MessageComponentTypes.ACTION_ROW,
-          components: [
-            { type: MessageComponentTypes.INPUT_TEXT, custom_id: 'physical_win', label: 'Physical Win 👟', style: 2, required: false },
-            { type: MessageComponentTypes.INPUT_TEXT, custom_id: 'mental_win', label: 'Mental Win 🧠', style: 2, required: false },
-            { type: MessageComponentTypes.INPUT_TEXT, custom_id: 'spiritual_win', label: 'Spiritual Win 📖', style: 2, required: false },
-          ]
-        }
-      ]
-    });
+    // Create a modal form
+    const modal = new ModalBuilder()
+      .setCustomId('dailywins_modal')
+      .setTitle('Submit Your Daily Wins');
+
+    // Add text inputs
+    const physicalWinInput = new TextInputBuilder()
+      .setCustomId('physical_win')
+      .setLabel('Physical Win 👟')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(false);
+
+    const mentalWinInput = new TextInputBuilder()
+      .setCustomId('mental_win')
+      .setLabel('Mental Win 🧠')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(false);
+
+    const spiritualWinInput = new TextInputBuilder()
+      .setCustomId('spiritual_win')
+      .setLabel('Spiritual Win 📖')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(false);
+
+    // Add components to the modal
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(physicalWinInput),
+      new ActionRowBuilder().addComponents(mentalWinInput),
+      new ActionRowBuilder().addComponents(spiritualWinInput)
+    );
+
+    await interaction.showModal(modal);
   }
 
-  if (interaction.isModalSubmit()) {
+  if (interaction.isModalSubmit() && interaction.customId === 'dailywins_modal') {
     const physicalWin = interaction.fields.getTextInputValue('physical_win') || '';
     const mentalWin = interaction.fields.getTextInputValue('mental_win') || '';
     const spiritualWin = interaction.fields.getTextInputValue('spiritual_win') || '';
@@ -87,7 +106,7 @@ client.on('interactionCreate', async (interaction) => {
 
       if (rows.length > 0) {
         const lastDate = new Date(rows[0].last_submission);
-        const diffDays = (new Date(today) - lastDate) / (1000 * 60 * 60 * 24);
+        const diffDays = (new Date(today).getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
 
         if (diffDays === 1) streakCount = rows[0].streak_count + 1; // Increment streak
         else if (diffDays > 1) streakCount = 1; // Reset streak
