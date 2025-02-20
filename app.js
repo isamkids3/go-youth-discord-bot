@@ -1,118 +1,118 @@
-import { Client, GatewayIntentBits, Events, ModalBuilder, TextInputBuilder, ActionRowBuilder, TextInputStyle, SlashCommandBuilder } from 'discord.js';
 import 'dotenv/config';
+import express from 'express';
+import mysql from 'mysql2/promise';
+import { 
+  Client, GatewayIntentBits, InteractionType, InteractionResponseType, MessageComponentTypes 
+} from 'discord.js';
 
-// Initialize Discord Client
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildMembers],
+// Setup MySQL connection
+const pool = mysql.createPool({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASS,
+  database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
 });
 
-// Variables to store total counts (these reset when the bot restarts)
-let totalPhysicalWins = 0;
-let totalMentalWins = 0;
-let totalSpiritualWins = 0;
+// Create the table if it doesn't exist
+async function initializeDatabase() {
+  const connection = await pool.getConnection();
+  await connection.execute(`
+    CREATE TABLE IF NOT EXISTS daily_wins (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id VARCHAR(50) NOT NULL,
+      date DATE NOT NULL,
+      physical_win TEXT,
+      mental_win TEXT,
+      spiritual_win TEXT,
+      streak_count INT DEFAULT 1,
+      last_submission DATE NOT NULL
+    )
+  `);
+  connection.release();
+}
+initializeDatabase();
 
-// Register commands (you should deploy them separately using a command registration script)
-const commands = [
-  new SlashCommandBuilder().setName('totalcount').setDescription('Shows total daily wins submitted'),
-  new SlashCommandBuilder().setName('dailywins').setDescription('Submit your daily wins'),
-];
+const app = express();
+app.use(express.json());
 
-// Bot Ready Event
-client.once(Events.ClientReady, () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
-});
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-// Interaction Event Listener
-client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isCommand() && !interaction.isModalSubmit()) return;
+client.once('ready', () => console.log('Bot is online!'));
 
-  // Handle "/totalcount" Slash Command
-  if (interaction.commandName === 'totalcount') {
-    const totalWins = totalPhysicalWins + totalMentalWins + totalSpiritualWins;
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isCommand()) return;
 
+  const userId = interaction.user.id;
+  const today = new Date().toISOString().split('T')[0];
+
+  if (interaction.commandName === 'dailywins') {
     await interaction.reply({
-      content: `🏆 **Total Wins Summary** 🏆\n\n` +
-               `- **Physical Wins:** ${totalPhysicalWins}\n` +
-               `- **Mental Wins:** ${totalMentalWins}\n` +
-               `- **Spiritual Wins:** ${totalSpiritualWins}\n` +
-               `- **Total Daily Wins:** ${totalWins}\n`,
-      ephemeral: false,
+      content: 'Submit your daily wins 🏆',
+      ephemeral: true,
+      components: [
+        {
+          type: MessageComponentTypes.ACTION_ROW,
+          components: [
+            { type: MessageComponentTypes.INPUT_TEXT, custom_id: 'physical_win', label: 'Physical Win 👟', style: 2, required: false },
+            { type: MessageComponentTypes.INPUT_TEXT, custom_id: 'mental_win', label: 'Mental Win 🧠', style: 2, required: false },
+            { type: MessageComponentTypes.INPUT_TEXT, custom_id: 'spiritual_win', label: 'Spiritual Win 📖', style: 2, required: false },
+          ]
+        }
+      ]
     });
   }
 
-  // Handle "/dailywins" Slash Command (Shows Modal)
-  else if (interaction.commandName === 'dailywins') {
-    const modal = new ModalBuilder()
-      .setCustomId('dailywins_modal')
-      .setTitle('Submit Your Daily Wins 🏆');
+  if (interaction.isModalSubmit()) {
+    const physicalWin = interaction.fields.getTextInputValue('physical_win') || '';
+    const mentalWin = interaction.fields.getTextInputValue('mental_win') || '';
+    const spiritualWin = interaction.fields.getTextInputValue('spiritual_win') || '';
 
-    const physicalWinInput = new TextInputBuilder()
-      .setCustomId('physical_win')
-      .setLabel('Physical Win 👟')
-      .setStyle(TextInputStyle.Paragraph)
-      .setRequired(false);
+    if (!physicalWin && !mentalWin && !spiritualWin) {
+      return interaction.reply({ content: 'You did not input any daily wins.', ephemeral: true });
+    }
 
-    const mentalWinInput = new TextInputBuilder()
-      .setCustomId('mental_win')
-      .setLabel('Mental Win 🧠')
-      .setStyle(TextInputStyle.Paragraph)
-      .setRequired(false);
-
-    const spiritualWinInput = new TextInputBuilder()
-      .setCustomId('spiritual_win')
-      .setLabel('Spiritual Win 📖')
-      .setStyle(TextInputStyle.Paragraph)
-      .setRequired(false);
-
-    modal.addComponents(
-      new ActionRowBuilder().addComponents(physicalWinInput),
-      new ActionRowBuilder().addComponents(mentalWinInput),
-      new ActionRowBuilder().addComponents(spiritualWinInput)
-    );
-
-    await interaction.showModal(modal);
-  }
-
-  // Handle Modal Submission
-  else if (interaction.isModalSubmit() && interaction.customId === 'dailywins_modal') {
-    const userId = interaction.user.id;
-
-    const physicalWin = interaction.fields.getTextInputValue('physical_win') || null;
-    const mentalWin = interaction.fields.getTextInputValue('mental_win') || null;
-    const spiritualWin = interaction.fields.getTextInputValue('spiritual_win') || null;
-
-    let modalValues = '';
+    let streakCount = 1;
+    const connection = await pool.getConnection();
     
-    if (physicalWin) {
-      modalValues += `**Physical Win**: ${physicalWin}\n\n`;
-      totalPhysicalWins++;
-    }
-    if (mentalWin) {
-      modalValues += `**Mental Win**: ${mentalWin}\n\n`;
-      totalMentalWins++;
-    }
-    if (spiritualWin) {
-      modalValues += `**Spiritual Win**: ${spiritualWin}\n\n`;
-      totalSpiritualWins++;
-    }
+    try {
+      // Check last submission
+      const [rows] = await connection.execute(
+        'SELECT last_submission, streak_count FROM daily_wins WHERE user_id = ? ORDER BY date DESC LIMIT 1',
+        [userId]
+      );
 
-    const date = new Date();
-    const formattedDate = `${date.getDate()} ${date.toLocaleString('en-US', { month: 'long' })} ${date.getFullYear()}`;
+      if (rows.length > 0) {
+        const lastDate = new Date(rows[0].last_submission);
+        const diffDays = (new Date(today) - lastDate) / (1000 * 60 * 60 * 24);
 
-    // If the user submits nothing, send a warning message
-    if (!modalValues) {
+        if (diffDays === 1) streakCount = rows[0].streak_count + 1; // Increment streak
+        else if (diffDays > 1) streakCount = 1; // Reset streak
+        else streakCount = rows[0].streak_count; // Keep streak
+      }
+
+      // Insert new record
+      await connection.execute(
+        `INSERT INTO daily_wins (user_id, date, physical_win, mental_win, spiritual_win, streak_count, last_submission) 
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [userId, today, physicalWin, mentalWin, spiritualWin, streakCount, today]
+      );
+
       await interaction.reply({
-        content: `<@${userId}>, you did not input any daily wins! 😢`,
-        ephemeral: true,
+        content: `Your daily win has been recorded!\n\n🏆 **Current Streak:** ${streakCount} days`,
+        ephemeral: true
       });
-    } else {
-      await interaction.reply({
-        content: `🎉 <@${userId}>'s daily win on **${formattedDate}**:\n\n${modalValues}`,
-        ephemeral: false,
-      });
+    } catch (error) {
+      console.error('Database error:', error);
+      await interaction.reply({ content: 'An error occurred while saving your daily win.', ephemeral: true });
+    } finally {
+      connection.release();
     }
   }
 });
 
-// Login to Discord
-client.login(process.env.DISCORD_TOKEN);
+client.login(process.env.TOKEN);
+app.listen(3000, () => console.log('Server is running on port 3000'));
