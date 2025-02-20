@@ -58,22 +58,22 @@ client.on('interactionCreate', async (interaction) => {
 
     // Add text inputs
     const physicalWinInput = new TextInputBuilder()
-      .setCustomId('physical_win')
-      .setLabel('Physical Win 👟')
-      .setStyle(TextInputStyle.Short)
-      .setRequired(false);
-
-    const mentalWinInput = new TextInputBuilder()
-      .setCustomId('mental_win')
-      .setLabel('Mental Win 🧠')
-      .setStyle(TextInputStyle.Short)
-      .setRequired(false);
-
-    const spiritualWinInput = new TextInputBuilder()
-      .setCustomId('spiritual_win')
-      .setLabel('Spiritual Win 📖')
-      .setStyle(TextInputStyle.Short)
-      .setRequired(false);
+    .setCustomId('physical_win')
+    .setLabel('Physical Win 👟')
+    .setStyle(TextInputStyle.Paragraph) // Change from Short to Paragraph
+    .setRequired(false);
+  
+  const mentalWinInput = new TextInputBuilder()
+    .setCustomId('mental_win')
+    .setLabel('Mental Win 🧠')
+    .setStyle(TextInputStyle.Paragraph) // Change from Short to Paragraph
+    .setRequired(false);
+  
+  const spiritualWinInput = new TextInputBuilder()
+    .setCustomId('spiritual_win')
+    .setLabel('Spiritual Win 📖')
+    .setStyle(TextInputStyle.Paragraph) // Change from Short to Paragraph
+    .setRequired(false);
 
     // Add components to the modal
     modal.addComponents(
