@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import mysql from 'mysql2/promise';
+import { syncDatabaseToSheets } from "./googledocs.js";
 import { 
   Client, GatewayIntentBits, InteractionType, InteractionResponseType, 
   TextInputStyle, ModalBuilder, ActionRowBuilder, TextInputBuilder, MessageFlags
@@ -44,11 +45,13 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 client.once('ready', () => console.log('Bot is online!'));
 
+syncDatabaseToSheets();
+
 client.on('interactionCreate', async (interaction) => { // Fixed typo here
   if (!interaction.isCommand() && !interaction.isModalSubmit()) return;
 
   const userId = interaction.user.id;
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA'); // Format: YYYY-MM-DD
 
   if (interaction.commandName === 'dailywins') {
     // Create the modal
