@@ -47,6 +47,8 @@ client.once('ready', () => console.log('Bot is online!'));
 
 syncDatabaseToSheets();
 
+setInterval(syncDatabaseToSheets, 1000 * 60 * 60); // Sync to database every hour
+
 client.on('interactionCreate', async (interaction) => { // Fixed typo here
   if (!interaction.isCommand() && !interaction.isModalSubmit()) return;
 
