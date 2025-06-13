@@ -3,7 +3,7 @@ import { GoogleAuth } from 'google-auth-library';
 import mysql from 'mysql2/promise';
 import fs from 'fs';
 
-const SHEET_ID = 'YOUR_SPREADSHEET_ID_HERE';
+const SHEET_ID = 'SHEET_ID';
 
 // Load Google Service Account Credentials
 const creds = JSON.parse(fs.readFileSync('google-credentials.json'));
